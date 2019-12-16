@@ -1,0 +1,2 @@
+Fiddling the ball position in intcode computer memory
+Rerun it until it terminates - this is because random moving of the ball often overwrites blocks
