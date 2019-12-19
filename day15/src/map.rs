@@ -90,6 +90,27 @@ impl<'a> Map {
         0
     }
 
+    pub fn part_2_steps(&self) -> usize {
+        let mut oxygen_loc = (0, 0);
+        let flow = FlowMap::access_target(self, self.actor.initial_position);
+        for (coord, (distance, direction, tile)) in flow {
+            if tile == Tile::OXYGEN {
+                oxygen_loc = coord;
+            }
+        }
+
+        let oxy_flow = FlowMap::access_target(self, oxygen_loc);
+        let mut largest_distance = 0;
+        for (_, (distance, _, _)) in oxy_flow {
+            if distance > largest_distance {
+                largest_distance = distance;
+            }
+        }
+        // Subtract 1 because we also count the furtherest WALL, but we need EMPTY only
+        // furtherest WALL can only be +1 from furtherest EMPTY
+        largest_distance - 1
+    }
+
     fn mark_tile(&mut self, tile: &Tile, coords: Coordinate) {
         let (x, y) = coords;
         let index = y * self.map_side as isize + x;
@@ -109,16 +130,6 @@ impl<'a> Map {
         let index = y * self.map_side as isize + x;
         // this may panic if our map sides are too small
         &self.map[index as usize]
-    }
-
-    pub fn format_stats(&self) -> String {
-        let result = self.map.iter().fold((0, 0, 0, 0), |acc, t| match t {
-            Tile::WALL => (acc.0 + 1, acc.1, acc.2, acc.3),
-            Tile::EMPTY => (acc.0, acc.1 + 1, acc.2, acc.3),
-            Tile::OXYGEN => (acc.0, acc.1, acc.2 + 1, acc.3),
-            Tile::FOG => (acc.0, acc.1, acc.2, acc.3 + 1),
-        });
-        format!("stats: {:?}", result)
     }
 
     pub fn explore_fog(&mut self) -> Option<Direction> {
@@ -150,10 +161,6 @@ impl<'a> Map {
                 match first_fog {
                     Some(fog) => {
                         self.target = fog;
-                        println!(
-                            "FRESH TARGET. moving to fog {:?} with actor {:?}",
-                            self.target, &actor_pos
-                        );
                         let flow = FlowMap::access_target(self, first_fog.unwrap());
                         let (_, dir, _) = flow.get(&actor_pos).expect("actor pos shoud be flowed");
 

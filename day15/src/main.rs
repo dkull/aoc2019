@@ -51,4 +51,5 @@ fn main() {
     }
 
     println!("p1: {}", map.part_1_distance());
+    println!("p2: {}", map.part_2_steps());
 }
