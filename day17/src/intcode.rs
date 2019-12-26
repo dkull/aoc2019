@@ -44,7 +44,7 @@ pub fn spawn_processes(
             relative_base: 0,
             verbose,
         };
-        if inputs.len() > 0 {
+        if !inputs.is_empty() {
             fresh_state.input.push_back(inputs.pop_front().unwrap());
         }
         process_states.push(fresh_state);
