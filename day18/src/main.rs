@@ -1,3 +1,4 @@
+use std::cmp::min;
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::prelude::*;
@@ -16,6 +17,14 @@ struct Loc {
     y: usize,
 }
 
+#[derive(Debug, PartialEq, Eq, Clone)]
+struct Key {
+    loc: Loc,
+    name: char,
+    flow: HashMap<Loc, (usize, Dir, char, HashSet<char>)>,
+    others: Vec<char>,
+}
+
 fn load_map() -> Vec<String> {
     let mut file = File::open("input.txt").unwrap();
     let mut contents = String::new();
@@ -27,6 +36,7 @@ fn load_map() -> Vec<String> {
 struct FlowMap {
     pub map: Vec<String>,
     pub target: Loc,
+    pub passables: Vec<char>,
     pub flow: HashMap<Loc, (usize, Dir, char, HashSet<char>)>,
 }
 
@@ -37,41 +47,70 @@ impl FlowMap {
     pub fn generate(
         map: Vec<String>,
         target: Loc,
+        passables: &Vec<char>,
     ) -> HashMap<Loc, (usize, Dir, char, HashSet<char>)> {
         let mut flow_map = FlowMap {
             map,
+            passables: passables.clone(),
             target: target.clone(),
             flow: HashMap::new(),
         };
+
         let distance = 0;
         flow_map._access_here(target, Dir::NORTH, distance, HashSet::new());
+        let pointless_items: Vec<Loc> = flow_map
+            .flow
+            .iter()
+            .filter(|(k, v)| passables.contains(&v.2))
+            .map(|(k, v)| k.clone())
+            .collect();
+
+        pointless_items.iter().for_each(|pos| {
+            flow_map.flow.remove(pos);
+        });
         flow_map.flow
     }
 
-    fn _access_here(&mut self, pos: Loc, came_from: Dir, distance: usize, passed: HashSet<char>) {
+    fn _access_here(
+        &mut self,
+        pos: Loc,
+        came_from: Dir,
+        distance: usize,
+        mut passed: HashSet<char>,
+    ) {
         let row = self.map[pos.y].as_bytes();
-        let col = row[pos.x];
+        let col = row[pos.x] as char;
 
-        let (entry_distance, entry_from, entry_tile, passed) = self
-            .flow
-            .entry(pos.clone())
-            .or_insert((distance, came_from.clone(), col as char, passed));
+        // do not clip deep into walls and fog, just one edge layer
+        if col == '#' {
+            return;
+        }
+
+        let (entry_distance, entry_from, entry_tile, _) = self.flow.entry(pos.clone()).or_insert((
+            distance,
+            came_from.clone(),
+            col,
+            passed.clone(),
+        ));
 
         if distance == 0 || distance <= *entry_distance {
             *entry_distance = distance;
-            *entry_from = came_from;
+            *entry_from = came_from.clone();
         } else {
             // if we are hitting blocks that are closer than us, then
             // we are on the wrong track and should back out
             return;
         }
 
-        // do not clip deep into walls and fog, just one edge layer
-        if *entry_tile == '#' {
-            return;
+        let _tmp = entry_tile.clone();
+        self.flow.insert(
+            pos.clone(),
+            (distance, came_from.clone(), col as char, passed.clone()),
+        );
+
+        if !self.passables.contains(&_tmp) {
+            passed.insert(_tmp);
         }
-        let mut passed = passed.clone();
-        passed.insert(entry_tile.clone());
 
         self._access_here(
             Loc {
@@ -112,99 +151,6 @@ impl FlowMap {
     }
 }
 
-fn door_order(map: &Mapsor, actor: &Loc) -> Vec<char> {
-    let flows = map.item_flows(actor, &vec!['.']);
-
-    // find what blocks what
-    let mut blockers = HashMap::new();
-    for (k, v) in flows {
-        let item = v.2;
-        for blocked_by in v.3 {
-            if blocked_by != '@' && blocked_by != '.' {
-                let e = blockers.entry(blocked_by).or_insert(vec![]);
-                e.push(item);
-                blockers.entry(item).or_insert(vec![]);
-            }
-        }
-    }
-
-    // find what blocks nothing
-    let mut non_blockers = vec![];
-    for b in &blockers {
-        println!("> {} blocks {:?}", b.0, b.1);
-        if b.1.is_empty() {
-            non_blockers.push(b.0);
-        }
-    }
-
-    let mut block_chain: Vec<&char> = non_blockers.clone();
-
-    let mut block_chain_groups = vec![];
-    block_chain_groups.push(non_blockers.clone());
-
-    loop {
-        let mut any_blocker = false;
-
-        println!("---");
-        for (item, blocked) in &blockers {
-            // keys can't block
-            if item.is_ascii_lowercase() {
-                continue;
-            }
-            let mut blocks = false;
-            for b in blocked {
-                if non_blockers.contains(&b) {
-                    blocks = true;
-                    break;
-                }
-            }
-            if blocks {
-                let mut can_be_unblocker = true;
-                for item_blocked in blocked {
-                    if !item_blocked.is_ascii_uppercase() {
-                        continue;
-                    }
-                    if !block_chain.contains(&item_blocked) {
-                        can_be_unblocker = false;
-                        break;
-                    }
-                }
-
-                if !can_be_unblocker {
-                    any_blocker = true;
-                    continue;
-                }
-
-                if !block_chain.contains(&item) {
-                    println!("{} is unblocked", item);
-                    block_chain.push(item);
-                    let mut blocked_any = false;
-                    let last_group: &mut Vec<&char> = block_chain_groups.last_mut().unwrap();
-                    for ch in last_group.iter() {
-                        if blocked.contains(&ch.to_ascii_lowercase()) {
-                            println!("item {} blocks {} key", item, ch);
-                            blocked_any = true;
-                            break;
-                        }
-                    }
-                    if blocked_any {
-                        block_chain_groups.push(vec![item]);
-                    } else {
-                        last_group.push(item);
-                    }
-                }
-            }
-        }
-        if !any_blocker {
-            break;
-        }
-    }
-    println!("blockchain: {:?}", block_chain);
-    println!("blockchain gorups: {:?}", block_chain_groups);
-
-    vec![]
-}
-
 struct Mapsor {
     data: Vec<String>,
 }
@@ -212,7 +158,7 @@ struct Mapsor {
 impl Mapsor {
     fn print(&self) {
         for l in &self.data {
-            println!("{}", l);
+            println!("MAP: {}", l);
         }
     }
 
@@ -221,35 +167,166 @@ impl Mapsor {
         target: &Loc,
         passables: &Vec<char>,
     ) -> HashMap<Loc, (usize, Dir, char, HashSet<char>)> {
-        let fm = FlowMap::generate(self.data.clone(), target.clone());
+        let fm = FlowMap::generate(self.data.clone(), target.clone(), passables);
         let mut goods = HashMap::new();
         for (k, v) in fm {
-            if v.2 == '#' || v.2 == '.' {
-                continue;
-            }
-            println!("{:?} -> {:?}", k, v);
             goods.insert(k, v);
         }
         goods
     }
 
-    fn find_item(&self, item: char) -> Option<Loc> {
+    fn find_items(&self, item: &char) -> Vec<Loc> {
+        let mut results = vec![];
         for (y, line) in self.data.iter().enumerate() {
             for (x, chr) in line.chars().enumerate() {
-                if chr == item {
-                    return Some(Loc { x, y });
+                if chr == *item {
+                    results.push(Loc { x, y });
                 }
             }
         }
-        None
+        results
+    }
+
+    fn all_keys(&self) -> Vec<(Loc, char)> {
+        let mut out = vec![];
+        self.data.iter().for_each(|s| {
+            s.chars().for_each(|c| {
+                if c.is_ascii_lowercase() {
+                    out.push((self.find_items(&c).first().unwrap().clone(), c));
+                }
+            })
+        });
+        out
+    }
+}
+
+fn make_graph(map: &Mapsor, keys: Vec<(Loc, char)>, passables: &Vec<char>) -> HashMap<char, Key> {
+    keys.iter()
+        .map(|(pos, key)| {
+            let flow = map.item_flows(&pos, &passables);
+            (
+                *key,
+                Key {
+                    loc: pos.clone(),
+                    name: *key,
+                    flow,
+                    others: keys
+                        .iter()
+                        .filter(|(_, other)| other != key)
+                        .map(|(_, c)| *c)
+                        .collect(),
+                },
+            )
+        })
+        .collect()
+}
+
+fn solve_graph(
+    robot_flows: &Vec<HashMap<Loc, (usize, Dir, char, HashSet<char>)>>,
+    keys: &HashMap<char, Key>,
+    used: Vec<char>,
+    distances: Vec<usize>,
+    bests: &mut HashMap<Vec<char>, usize>,
+) {
+    'next_key: for (key_name, key_item) in keys {
+        if used.contains(&key_name) {
+            continue;
+        }
+
+        let robot_flow = &robot_flows
+            .iter()
+            .filter(|f| f.iter().any(|(k, v)| v.2 == *key_name))
+            .map(|f| f.clone())
+            .collect::<Vec<HashMap<Loc, (usize, Dir, char, HashSet<char>)>>>();
+
+        let robot_flow = robot_flow.first().unwrap();
+
+        let blocked_by = &robot_flow.get(&key_item.loc.clone()).unwrap().3;
+
+        //println!("{} blocked by {:?}", key_name, blocked_by);
+
+        for b in blocked_by {
+            // don't walk through keys
+            if b.is_ascii_lowercase() && !used.contains(&b) {
+                continue 'next_key;
+            }
+            // expect all doors to have keys picked up
+            if !used.contains(&b.to_ascii_lowercase()) {
+                continue 'next_key;
+            }
+        }
+
+        // find all the keys taken by this robot
+        let robot_lasts = used
+            .iter()
+            .filter(|u| {
+                let key_struct = keys.get(u).unwrap();
+                // get distance form previous thing to current thing
+                key_struct.flow.get(&key_item.loc).is_some()
+            })
+            .map(|u| *u)
+            .collect::<Vec<char>>();
+
+        let distance = match robot_lasts.last() {
+            None => robot_flow.get(&key_item.loc).unwrap().0,
+            Some(l) => {
+                let last = keys.get(l).unwrap();
+                // get distance form previous thing to current thing
+                last.flow.get(&key_item.loc).unwrap().0
+            }
+        };
+
+        let mut distances = distances.clone();
+        distances.push(distance);
+
+        let mut used = used.clone();
+        used.push(*key_name);
+
+        let this_score = distances.iter().sum::<usize>();
+
+        for (best, best_score) in &*bests {
+            // last item has to match
+            if key_name != best.last().unwrap() {
+                continue;
+            }
+            let mut contains_me = true;
+            for u in &used {
+                if !best.contains(&u) {
+                    contains_me = false;
+                }
+            }
+            if contains_me && best.len() >= used.len() && best_score <= &this_score {
+                continue 'next_key;
+            }
+        }
+        bests.insert(used.clone(), this_score);
+        solve_graph(robot_flows, keys, used, distances, bests);
     }
 }
 
 fn main() {
-    let map_data = load_map();
-    let map = Mapsor { data: map_data };
+    let mut scores = HashMap::new();
+    let passables = vec!['.', '@'];
+
+    let map = Mapsor { data: load_map() };
     map.print();
-    let actor_loc = map.find_item('@').unwrap();
-    println!("actor @ {:?}", actor_loc);
-    let order = door_order(&map, &actor_loc);
+
+    let actors = map.find_items(&'@');
+    let pos_and_keys = map.all_keys();
+    let actor_flows = actors
+        .iter()
+        .map(|a| map.item_flows(&a, &passables))
+        .collect::<Vec<HashMap<Loc, (usize, Dir, char, HashSet<char>)>>>();
+
+    let key_data = make_graph(&map, pos_and_keys.clone(), &passables);
+
+    solve_graph(&actor_flows, &key_data, vec![], vec![], &mut scores);
+
+    let mut best = 0xffff;
+    for (k, v) in scores {
+        if k.len() == pos_and_keys.len() {
+            best = min(best, v);
+        }
+    }
+    println!("best distance {}", best);
 }
