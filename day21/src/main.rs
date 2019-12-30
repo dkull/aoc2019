@@ -17,21 +17,6 @@ fn main() {
     let proc_count = 1;
     let min_outputs = 1;
 
-    /*let commands = "NOT B J
-    AND C J
-    NOT C T
-    AND D T
-    OR T J
-    NOT J T
-    AND D T
-    AND E T
-    OR T J
-    OR I T
-    NOT T T
-    OR T J
-    RUN\n";
-    */
-
     let mut known_cases: HashMap<String, usize> = [
         ("#####.###########".to_string(), 1), // 14900
         ("#####.##.########".to_string(), 2), // 35400
@@ -75,223 +60,8 @@ fn main() {
     .cloned()
     .collect();
 
-    // found 12
-    let mut best_cmds = vec![
-        "NOT B J".to_string(),
-        "AND C J".to_string(),
-        "NOT C T".to_string(),
-        "AND D T".to_string(),
-        "OR T J".to_string(),
-        "NOT J T".to_string(),
-        "AND D T".to_string(),
-        "AND E T".to_string(),
-        "OR T J".to_string(),
-        "OR I T".to_string(),
-        "NOT T T".to_string(),
-        "OR T J".to_string(),
-    ];
-
-    // found 13 - 185k
-    let mut best_cmds = vec![
-        "OR T J".to_string(),
-        "NOT J T".to_string(),
-        "AND E T".to_string(),
-        "OR I T".to_string(),
-        "NOT T T".to_string(),
-        "NOT C T".to_string(),
-        "OR T J".to_string(),
-        "OR E J".to_string(),
-        "OR A T".to_string(),
-        "OR F J".to_string(),
-        "OR F T".to_string(),
-        "NOT A J".to_string(),
-        "NOT A J".to_string(),
-        "OR H J".to_string(),
-        "AND D J".to_string(),
-    ];
-
-    /*
-    // found 15
-    let mut best_cmds = vec![
-        "NOT A J".to_string(),
-        "NOT J T".to_string(),
-        "OR A T".to_string(),
-        "NOT C T".to_string(),
-        "AND B J".to_string(),
-        "OR G J".to_string(),
-        "OR C J".to_string(),
-        "OR C T".to_string(),
-        "AND H J".to_string(),
-        "NOT J T".to_string(),
-        "AND G T".to_string(),
-        "NOT J T".to_string(),
-        "AND D J".to_string(),
-    ];
-
-    // found 16?
-    let mut best_cmds = vec![
-        "OR T J".to_string(),
-        "NOT B J".to_string(),
-        "OR I T".to_string(),
-        "AND H T".to_string(),
-        "OR H J".to_string(),
-        "NOT H T".to_string(),
-        "AND E T".to_string(),
-        "AND J J".to_string(),
-        "OR H J".to_string(),
-        "AND D J".to_string(),
-        "OR J T".to_string(),
-        "OR T J".to_string(),
-    ];
-
-    // found 17
-    let mut best_cmds = vec![
-        "AND H T".to_string(),
-        "OR I T".to_string(),
-        "NOT B J".to_string(),
-        "OR H J".to_string(),
-        "AND J J".to_string(),
-        "OR H J".to_string(),
-        "AND E T".to_string(),
-        "OR T J".to_string(),
-        "OR J T".to_string(),
-        "NOT E T".to_string(),
-        "NOT A T".to_string(),
-        "AND D J".to_string(),
-    ];
-
-    // found 18
-    let mut best_cmds = vec![
-        "OR H J".to_string(),
-        "AND J J".to_string(),
-        "AND H T".to_string(),
-        "OR I T".to_string(),
-        "OR D J".to_string(),
-        "OR C J".to_string(),
-        "OR A J".to_string(),
-        "AND I T".to_string(),
-        "OR B T".to_string(),
-        "AND H T".to_string(),
-        "OR T T".to_string(),
-        "AND T J".to_string(),
-        "NOT B T".to_string(),
-        "NOT I T".to_string(),
-        "AND D J".to_string(),
-    ];
-
-    // found 19
-    let mut best_cmds = vec![
-        "AND F J".to_string(),
-        "OR B T".to_string(),
-        "OR B T".to_string(),
-        "AND C J".to_string(),
-        "OR D J".to_string(),
-        "OR F J".to_string(),
-        "OR F T".to_string(),
-        "NOT B J".to_string(),
-        "OR A J".to_string(),
-        "OR F T".to_string(),
-        "OR H T".to_string(),
-        "OR C J".to_string(),
-        "AND H J".to_string(),
-        "AND D J".to_string(),
-    ];
-
-    // found 20
-    let mut best_cmds = vec![
-        "AND E T".to_string(),
-        "AND J J".to_string(),
-        "NOT B J".to_string(),
-        "OR J T".to_string(),
-        "OR I J".to_string(),
-        "OR G J".to_string(),
-        "AND H J".to_string(),
-        "NOT E T".to_string(),
-        "NOT G T".to_string(),
-        "OR E J".to_string(),
-        "AND T T".to_string(),
-        "AND D J".to_string(),
-    ];*/
-
-    // found 22
-    /*let mut best_cmds = vec![
-        "OR J J".to_string(),
-        "OR H J".to_string(),
-        "OR T T".to_string(),
-        "OR E J".to_string(),
-        "NOT J T".to_string(),
-        "NOT C J".to_string(),
-        "AND H J".to_string(),
-        "AND B J".to_string(),
-        "AND F J".to_string(),
-        "NOT T J".to_string(),
-        "NOT I T".to_string(),
-        "NOT I T".to_string(),
-        "AND H T".to_string(),
-        "AND D J".to_string(),
-        "OR T J".to_string(),
-    ];
-
-    // found 21
-    let mut best_cmds = vec![
-        "NOT J T".to_string(),
-        "NOT I T".to_string(),
-        "OR T T".to_string(),
-        "NOT C J".to_string(),
-        "AND B J".to_string(),
-        "NOT T J".to_string(),
-        "AND H T".to_string(),
-        "AND F J".to_string(),
-        "OR H J".to_string(),
-        "AND D J".to_string(),
-        "AND H J".to_string(),
-        "NOT I T".to_string(),
-        "OR E J".to_string(),
-        "OR D T".to_string(),
-        "AND T J".to_string(),
-    ];
-    */
-
-    // found 23 - 120k
-    /*let mut best_cmds = vec![
-        "OR H J".to_string(),
-        "OR J T".to_string(),
-        "OR J T".to_string(),
-        "NOT H T".to_string(),
-        "OR E J".to_string(),
-        "AND E T".to_string(),
-        "OR T J".to_string(),
-        "OR A T".to_string(),
-        "AND I T".to_string(),
-        "OR H T".to_string(),
-        "OR G T".to_string(),
-        "AND T J".to_string(),
-        "AND D J".to_string(),
-    ];*/
-
-    // FAIL: "#####.#.#@##..###" 187010
-    // FAIL: "#####.#.#@##..###" 187661
-    // FAIL: "#####.#.#.##@.###" 191216
-    let mut best_cmds = vec![
-        "OR F J".to_string(),
-        "OR E J".to_string(),
-        "OR I J".to_string(),
-        "OR H J".to_string(),
-        "OR F J".to_string(),
-        "OR H J".to_string(),
-        "OR J J".to_string(),
-        "OR E J".to_string(),
-        "OR I J".to_string(),
-        "OR G J".to_string(),
-        "NOT B J".to_string(),
-        "OR H J".to_string(),
-        "AND D J".to_string(),
-        "NOT A T".to_string(),
-        "OR T J".to_string(),
-    ];
-
     // unseen: "#####..###@#..###" 264k
-    let mut best_cmds = vec![
+    /*let mut best_cmds = vec![
         "OR F J".to_string(),
         "OR H J".to_string(),
         "OR E J".to_string(),
@@ -307,7 +77,7 @@ fn main() {
         "OR J J".to_string(),
         "OR E J".to_string(),
         "AND D J".to_string(),
-    ];
+    ];*/
 
     // works like this too
     let mut best_cmds = vec![];
@@ -339,18 +109,6 @@ fn main() {
             data.push(popped);
         }
 
-        /*let mut removed = vec![];
-        for (i, com) in data.iter().enumerate().rev() {
-            if com.ends_with('T') {
-                removed.push(i);
-            }
-            if com.contains("T J") {
-                break;
-            }
-        }
-        for rem in removed {
-            data.remove(rem);
-        }*/
         data.dedup();
         data
     }
@@ -540,11 +298,6 @@ fn main() {
                 bonus,
                 failure,
             );
-            //let mut ii = 0;
-            /*for (k, v) in &output_instructions {
-                println!("-- {}. {} {}", ii, k, v);
-                ii += 1;
-            }*/
         }
 
         let stuck = best_score_found_on < (global_i - 300_000);
