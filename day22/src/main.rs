@@ -28,7 +28,7 @@ fn load_steps() -> Vec<Step> {
             } else if c.contains("deal into new stack") {
                 Step::NEWSTACK
             } else {
-                panic!("unkwnown step");
+                panic!("unkwnown step: {}", c);
             }
         })
         .collect()
@@ -61,12 +61,12 @@ fn predict_newstack(pos: isize) -> isize {
     -(pos + 1)
 }
 
-fn round(card_pos: isize, steps: &Vec<Step>, n_cards: isize) -> isize {
+fn round(card_pos: isize, steps: &Vec<Step>, n_cards: usize) -> isize {
     let mut card_pos = card_pos;
     for step in steps {
         card_pos = match step {
             Step::CUT(n) => predict_cut(card_pos, *n),
-            Step::DEAL(n) => predict_deal(card_pos, *n, n_cards),
+            Step::DEAL(n) => predict_deal(card_pos, *n, n_cards as isize),
             Step::NEWSTACK => predict_newstack(card_pos),
         };
         // has to be positive since i removed all negative handling
@@ -75,80 +75,90 @@ fn round(card_pos: isize, steps: &Vec<Step>, n_cards: isize) -> isize {
     card_pos
 }
 
+fn abs_pos(pos: isize, n_cards: isize) -> isize {
+    if pos < 0 {
+        n_cards + pos
+    } else {
+        pos
+    }
+}
+
+fn analyze_steps(steps: &Vec<Step>, pos: isize, n_cards: isize) -> isize {
+    let mut val_pos = pos;
+    for step in steps.iter().rev() {
+        match step {
+            Step::NEWSTACK => {
+                let pulled_value_pos = n_cards - 1 - val_pos;
+                println!("newstack {} => {}", val_pos, pulled_value_pos);
+                val_pos = pulled_value_pos;
+            }
+            Step::CUT(n) => {
+                let n = abs_pos(*n, n_cards);
+
+                if n > val_pos {
+                    let mut new_val_pos = val_pos - n_cards - n;
+                    //let mut new_val_pos = val_pos + n;
+                    if new_val_pos < 0 {
+                        println!("fix {}", new_val_pos);
+                        //new_val_pos = n_cards + (n_cards + new_val_pos - 1)
+                        new_val_pos = (n + val_pos) % n_cards;
+                        println!("fix to {}", new_val_pos);
+                    }
+                    println!("cut>({}) {} came from {}", n, val_pos, new_val_pos);
+                    val_pos = new_val_pos;
+                } else {
+                    let mut new_val_pos = (val_pos - 1 - n) % n_cards;
+                    new_val_pos = val_pos - (n_cards - n);
+                    if new_val_pos < 0 {
+                        new_val_pos = n_cards + new_val_pos
+                    }
+                    println!("cut<({}) {} came from {}", n, val_pos, new_val_pos);
+                    val_pos = new_val_pos;
+                }
+            }
+            Step::DEAL(n) => {
+                for i in 0..n_cards {
+                    let res = i * n % n_cards;
+                    if res == val_pos {
+                        println!("deal({}) {} came from {}", n, val_pos, i);
+                        val_pos = i;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    val_pos
+}
+
 fn main() {
-    let find_card = 2020;
+    let target_pos = 8;
     let steps = load_steps();
 
     let n_cards: usize = 119_315_717_514_047;
     let iterations: usize = 101_741_582_076_661;
-    // too low: 25310464947432
+    // too low: 25_310_464_947_432
 
-    //let n_cards: usize = 6101;
-    //let iterations = 6091;
+    let n_cards: usize = 10;
+    let iterations = 1;
 
-    let mut card_pos: isize = find_card;
+    let mut cards: Vec<usize> = (0..n_cards).collect();
 
-    let mut wrap_candidates = vec![];
-    for i in 1..=10000 {
-        let wrap_candidate = n_cards / i;
-        if wrap_candidate > iterations {
-            continue;
-        }
-        let wrap_point = iterations / wrap_candidate;
-        let wrap_iterations = iterations % (wrap_candidate * wrap_point);
-        wrap_candidates.push((wrap_iterations, wrap_candidate));
-        println!(
-            "predicting wrap point at {} needing {}-({}*{})={} iterations",
-            wrap_candidate, iterations, wrap_candidate, wrap_point, wrap_iterations,
-        );
-    }
-    wrap_candidates.sort_by(|a, b| a.0.cmp(&b.0));
-    println!("found {} candidates", wrap_candidates.len());
-
-    let mut candidate_index = 0;
-    let mut current_candidate = wrap_candidates[candidate_index];
-    for iter in 1..=iterations {
-        card_pos = round(card_pos, &steps, n_cards as isize);
-
-        if card_pos == find_card {
-            println!("{}", card_pos);
-            panic!();
-        }
-
-        if wrap_candidates[candidate_index].0 == iter {
-            while current_candidate.0 == iter {
-                candidate_index += 1;
-                current_candidate = wrap_candidates[candidate_index];
-            }
-
-            let v = wrap_candidates[candidate_index].1;
-            println!(" === ");
-            println!(
-                "testing iter {} with wrap point {} expect {} in {} iterations",
-                &iter,
-                v,
-                find_card,
-                v - iter
-            );
-            /*let mut test_card_pos = card_pos;
-            for _ in 0..v - iter {
-                test_card_pos = round(test_card_pos, &steps, n_cards as isize);
-            }
-            println!(
-                "? iter {} at {:?} testing {} == {}",
-                iter, pair, card_pos, test_card_pos
-            );
-            if find_card == test_card_pos {
-                println!("FOUND WRAPAROUND so answer is {}", card_pos);
-                panic!();
-            }*/
-        }
+    for z in 0..10 {
+        let res = analyze_steps(&steps, z as isize, n_cards as isize);
+        println!("heur {} {:?}", z, res);
+        println!();
     }
 
-    println!(
-        "answer to cards {} iterations {} => {:?}",
-        n_cards,
-        iterations,
-        both(card_pos, n_cards as isize)
-    );
+    //println!("cards {:?}", cards);
+    for iter in 0..iterations {
+        let mut new_cards = cards.clone();
+        for (i, c) in cards.iter().enumerate() {
+            let new_pos = round(i as isize, &steps, n_cards) as usize % n_cards;
+            new_cards[new_pos] = *c;
+        }
+        cards = new_cards;
+        println!("{} cards {:?}", iter, cards);
+        println!("really at target {}", cards[target_pos as usize]);
+    }
 }
