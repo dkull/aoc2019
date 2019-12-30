@@ -43,6 +43,7 @@ pub fn spawn_processes(
             output: VecDeque::new(),
             relative_base: 0,
             verbose,
+            instruction_count: 0,
         };
         if !inputs.is_empty() {
             fresh_state.input.push_back(inputs.pop_front().unwrap());
@@ -60,11 +61,17 @@ pub struct ProcessState {
     pub output: VecDeque<isize>,
     relative_base: isize,
     verbose: bool,
+    instruction_count: usize,
 }
 
 impl ProcessState {
     pub fn is_terminated(&self) -> bool {
         self.instruction == TERMINATE
+    }
+    pub fn get_instruction_count(&mut self) -> usize {
+        let res = self.instruction_count;
+        self.instruction_count = 0;
+        res
     }
     fn read_write_mem(&mut self, mode: u8, pointer: usize, value: Option<isize>) -> isize {
         //let mode = if value.is_some() { 2 } else { mode };
@@ -97,6 +104,7 @@ impl ProcessState {
     pub fn run_to_interrupt(&mut self, min_outputs: usize) {
         while self.memory[self.iptr] != TERMINATE {
             let instruction = self.memory[self.iptr];
+            self.instruction_count += 1;
             let (op, mode_1, mode_2, mode_3) = extract_modes(instruction);
             //println!("--> running {} @ {}", instruction, self.iptr);
             match op {
