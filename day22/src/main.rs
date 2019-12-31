@@ -83,82 +83,73 @@ fn abs_pos(pos: isize, n_cards: isize) -> isize {
     }
 }
 
-fn analyze_steps(steps: &Vec<Step>, pos: isize, n_cards: isize) -> isize {
-    let mut val_pos = pos;
-    for step in steps.iter().rev() {
+fn run_steps(steps: &Vec<Step>, n_cards: isize) -> (isize, isize) {
+    let mut modulus = 1;
+    let mut offset = 0;
+    let mut direction_right = true;
+
+    for step in steps {
         match step {
-            Step::NEWSTACK => {
-                let pulled_value_pos = n_cards - 1 - val_pos;
-                println!("newstack {} => {}", val_pos, pulled_value_pos);
-                val_pos = pulled_value_pos;
-            }
             Step::CUT(n) => {
                 let n = abs_pos(*n, n_cards);
-
-                if n > val_pos {
-                    let mut new_val_pos = val_pos - n_cards - n;
-                    //let mut new_val_pos = val_pos + n;
-                    if new_val_pos < 0 {
-                        println!("fix {}", new_val_pos);
-                        //new_val_pos = n_cards + (n_cards + new_val_pos - 1)
-                        new_val_pos = (n + val_pos) % n_cards;
-                        println!("fix to {}", new_val_pos);
-                    }
-                    println!("cut>({}) {} came from {}", n, val_pos, new_val_pos);
-                    val_pos = new_val_pos;
-                } else {
-                    let mut new_val_pos = (val_pos - 1 - n) % n_cards;
-                    new_val_pos = val_pos - (n_cards - n);
-                    if new_val_pos < 0 {
-                        new_val_pos = n_cards + new_val_pos
-                    }
-                    println!("cut<({}) {} came from {}", n, val_pos, new_val_pos);
-                    val_pos = new_val_pos;
-                }
+                println!("cut {} offset was {} now {}", n, offset, offset + n);
+                offset += n;
             }
             Step::DEAL(n) => {
-                for i in 0..n_cards {
-                    let res = i * n % n_cards;
-                    if res == val_pos {
-                        println!("deal({}) {} came from {}", n, val_pos, i);
-                        val_pos = i;
-                        break;
-                    }
-                }
+                println!("deal {} modulus was {} now {}", n, modulus, modulus * n);
+                modulus *= n;
+                modulus %= n_cards - 1
+            }
+            Step::NEWSTACK => {
+                println!(
+                    "nestack dir was {} now {}",
+                    direction_right, !direction_right
+                );
+                direction_right = !direction_right;
             }
         }
     }
-    val_pos
+    (modulus, offset)
 }
 
 fn main() {
-    let target_pos = 8;
+    let target_pos = 2020;
     let steps = load_steps();
 
     let n_cards: usize = 119_315_717_514_047;
     let iterations: usize = 101_741_582_076_661;
     // too low: 25_310_464_947_432
 
-    let n_cards: usize = 10;
+    let n_cards: usize = 10007;
     let iterations = 1;
 
-    let mut cards: Vec<usize> = (0..n_cards).collect();
-
-    for z in 0..10 {
-        let res = analyze_steps(&steps, z as isize, n_cards as isize);
-        println!("heur {} {:?}", z, res);
-        println!();
-    }
-
-    //println!("cards {:?}", cards);
+    let mut offset = 0;
     for iter in 0..iterations {
-        let mut new_cards = cards.clone();
-        for (i, c) in cards.iter().enumerate() {
-            let new_pos = round(i as isize, &steps, n_cards) as usize % n_cards;
-            new_cards[new_pos] = *c;
-        }
-        cards = new_cards;
-        println!("{} cards {:?}", iter, cards);
-        println!("really at target {}", cards[target_pos as usize]);
+        let (modulus, offset) = run_steps(&steps, n_cards as isize);
     }
 }
+
+/*
+        3-> 0 7 4 1 8 5 2 9 6 3
+        7-> 0 1 2 3 4 5 6 7 8 9
+
+        2*7-> 0 2 4 6 8 1 3 5 7
+
+        4-> 0 7 5 3 1 8 6 4 2 -> 2-> 0 0 2 0 4 0 0 0
+        7-> 0 1 2 3 4 5 6 7 8
+
+        4-> 0 7 5 3 1 8 6 4 2
+        5-> 0 5 1 6 2 7 3 8 4  ->  5-> 0 1 0 0 0 5 0 0 0
+        7-> 0 2 4 6 8 1 3 5 7  -> r7-> 0 0 0 3 0 5 0 7 0
+        2-> 0 1 2 3 4 5 6 7 8
+
+        7-> 0 2 4 6 8 1 3 5 7
+reverse 0 7 5 3 1 8 6 4 2
+        4-> 0 4 8 3 7 2 6 1 5 ==^ (5)
+
+        0 4 8 3 7 2 6 1 5
+        2 6 1 5 0 4 8 3 7
+
+        0 1 2 3 4 5 6 7 8
+
+*/
