@@ -85,38 +85,52 @@ fn round(card_pos: isize, steps: &Vec<Step>, n_cards: usize) -> isize {
     card_pos
 }
 
+fn gen(modu: usize, offset: usize, cards: usize, reverse: bool) -> Vec<usize> {
+    println!("generating with mod {} offs {}", modu, offset);
+    let mut out_vec = vec![];
+    for i in 0..cards {
+        out_vec.push(0);
+    }
+    for i in 0..cards {
+        out_vec[((i * modu) + offset) % cards] = i;
+    }
+    if reverse {
+        out_vec.reverse();
+    }
+    out_vec
+}
+
 fn run_steps(
     steps: &Vec<Step>,
     n_cards: isize,
     modulus: isize,
     offset: isize,
-) -> (isize, isize, isize, isize) {
+) -> (isize, isize, bool) {
     let mut reversed = false;
 
-    let mut modulus = modulus;
-    let mut offset = offset;
-
-    let mut added_cuts = 0;
-    let mut multiplied_deals = 1;
+    let mut added_cuts = offset;
+    let mut multiplied_deals = modulus;
 
     for step in steps {
         match step {
             Step::CUT(n) => {
-                let old = offset;
+                let old = added_cuts;
                 let n = abs_pos(*n, n_cards);
-                offset += n;
-                offset %= n_cards;
-                added_cuts += n;
-                //println!("cut {} offset was {} now {}", n, old, offset);
+
+                added_cuts += n_cards - n;
+                added_cuts %= n_cards;
+                println!("cut {} cuts was {} now {}", n, old, added_cuts);
             }
             Step::DEAL(n) => {
                 let old = modulus;
                 let n = abs_pos(*n, n_cards);
-                modulus *= n;
-                modulus %= n_cards;
-
                 multiplied_deals *= n;
                 multiplied_deals %= n_cards;
+
+                if added_cuts > 0 {
+                    added_cuts *= n;
+                    added_cuts %= n_cards;
+                }
                 //println!("deal {} modulus was {} now {}", n, old, modulus);
             }
             Step::NEWSTACK => {
@@ -125,9 +139,11 @@ fn run_steps(
             }
         }
     }
-    println!("end at mod {} offs {} rev {}", modulus, offset, reversed);
-    //(modulus, offset)
-    (added_cuts, multiplied_deals, modulus, offset)
+    println!(
+        "found descriptor [rev {}] {} {}",
+        reversed, added_cuts, multiplied_deals,
+    );
+    (added_cuts, multiplied_deals, reversed)
 }
 
 fn mod_pow(mut base: usize, mut exp: usize, modulus: usize) -> usize {
@@ -159,32 +175,44 @@ fn mod_mult(a: usize, b: usize, m: usize) -> usize {
     res.to_usize().unwrap()
 }
 
+fn mods_needed(a: usize, b: usize, m: usize) -> usize {
+    let mut val = 0;
+    for i in 0..m {
+        val += a;
+        val %= m;
+        if val == b {
+            return i;
+        }
+    }
+    0
+}
+
 fn main() {
     let steps = load_steps();
 
-    let target_pos = 2020;
-    let n_cards: usize = 119_315_717_514_047;
-    let iterations: usize = 101_741_582_076_661;
-    // too low: 25_310_464_947_432
+    //let target_pos = 2020;
+    //let n_cards: usize = 119_315_717_514_047;
+    //let iterations: usize = 101_741_582_076_661;
+    // too low:  25_310_464_947_432
+    // too hig: 118_781_300_053_829
 
-    let target_pos = 2;
-    let n_cards: usize = 29;
+    let target_pos = 1;
+    let n_cards: usize = 17;
     let iterations = 1;
 
-    let mut cards: Vec<usize> = if n_cards < 1000000 {
+    let mut cards: Vec<usize> = if n_cards < 100_000 {
         (0..n_cards).collect()
     } else {
         (0..1).collect()
     };
 
-    let mut modulus: usize = 1;
-    let mut offset: usize = 0;
-    let mut first_modulus: usize = 0;
-    let mut first_offset: usize = 0;
+    let modulus: usize = 1;
+    let offset: usize = 0;
 
     let res = run_steps(&steps, n_cards as isize, modulus as isize, offset as isize);
     let cuts = res.0;
     let deals = res.1;
+    let reverse = res.2;
     println!("cuts {} deals {}", cuts, deals);
 
     println!("===");
@@ -196,6 +224,10 @@ fn main() {
         "predicting next for iter {}: mod {} offs {}",
         iterations, pred_modulus, pred_offset
     );
+    println!(
+        "guess {:?}",
+        gen(pred_modulus, pred_offset, n_cards, reverse)
+    );
 
     let target_offset = (pred_offset + target_pos) % n_cards;
     println!("{} is at offset {}", target_pos, target_offset);
@@ -206,8 +238,8 @@ fn main() {
     println!("with mod of {}", delta);
     println!("so a number {} places before me is next round", delta);
     println!("the number is larger by {}", can_fit);
-    println!("every nr before is me-{} iteration", delta - 1);
-    println!("thus is +{}", (delta - 1) * can_fit);
+    println!("every nr before is me-{} iteration", delta as isize - 1);
+    println!("thus is +{}", (delta as isize - 1) * can_fit as isize);
 
     println!(
         "target is +{} times {} first round first jump [{}]",
@@ -215,38 +247,16 @@ fn main() {
         target_offset / pred_modulus,
         target_offset > pred_modulus
     );
-    for i in 0..7 {
-        let res = (pred_modulus * i) % n_cards;
-        println!("  mark is {} at {} round", res, i,);
-    }
-
-    if iterations < 1000000 {
-        /*let res = run_steps(&steps, n_cards as isize, modulus as isize, offset as isize);
-        modulus = res.2 as usize;
-        offset = res.3 as usize;
-
-        if iter == 0 {
-            first_modulus = modulus;
-            first_offset = offset;
-        }*/
-        let mut new_cards = cards.clone();
-        for card in 0..n_cards {
-            let c = round(card as isize, &steps, n_cards as usize) % n_cards as isize;
-            //println!("card {} -> {} {}", card, cards[card as usize], c);
-            new_cards[c as usize] = cards[card as usize];
-        }
-        for card in 0..n_cards {
-            println!("> real nth {} == {}", card, new_cards[card],);
-        }
-        cards = new_cards;
+    if iterations < 100_000 {
         for iter in 1..=iterations {
-            /*for i in 0..target_pos {
-                println!("
-            }*/
-            //let mut delta = (pred_offset + ((can_fit) * pred_modulus)) % n_cards;
-            //println!("delta = {}", delta);
-
-            
+            let mut new_cards = cards.clone();
+            for card in 0..n_cards {
+                let c = round(card as isize, &steps, n_cards as usize) % n_cards as isize;
+                //println!("card {} -> {} {}", card, cards[card as usize], c);
+                new_cards[c as usize] = cards[card as usize];
+            }
+            println!("> {} {:?}", iter, new_cards);
+            cards = new_cards;
         }
     }
 }
