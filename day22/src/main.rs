@@ -219,10 +219,10 @@ fn reduce_steps(
             "reduced {:?} down to {:?} in {} factor loops",
             steps, new_steps, factor
         );
-        println!(
+        /*println!(
             "generated from reduced steps: {:?}",
             generate_from_steps(&new_steps, n_cards as usize)
-        );
+        );*/
         steps = new_steps.clone();
     }
 
@@ -280,6 +280,17 @@ fn mods_needed(a: usize, b: usize, m: usize) -> usize {
     0
 }
 
+fn check(data: &Vec<usize>, offset: isize, modu: isize, reversed: bool) -> bool {
+    let zero = data.iter().position(|d| d == &0).unwrap();
+    let one = data.iter().position(|d| d == &1).unwrap();
+
+    if !reversed {
+        (zero + modu as usize) % data.len() == one
+    } else {
+        (one + modu as usize) % data.len() == zero
+    }
+}
+
 fn main() {
     let target_pos = 2020;
     let n_cards: usize = 119_315_717_514_047;
@@ -289,7 +300,7 @@ fn main() {
 
     let target_pos = 1;
     let n_cards: usize = 17;
-    let iterations = 10;
+    let iterations: usize = 101_741_582_076_661;
 
     let steps = load_steps(n_cards);
 
@@ -302,25 +313,27 @@ fn main() {
     //modulus = mod_pow(modulus as usize, iterations, n_cards);
     //offset = mod_mult(offset as usize, iterations, n_cards);
 
-    if iterations >= 100_000 {
+    if iterations >= 10000 {
         reduce_steps(&steps, n_cards as isize, iterations as isize);
         return;
     }
 
     for iter in 1..=iterations {
         println!("=== iteration {}", iter);
-        let res = reduce_steps(&steps, n_cards as isize, iter as isize);
-        let smart_output = generate_from_steps(&res.3, n_cards);
-
         let mut new_cards = cards.clone();
         for card in 0..n_cards {
             let c = move_card_to(card as isize, &steps, n_cards as usize) % n_cards as isize;
             new_cards[c as usize] = cards[card as usize];
         }
-        let zero_pos = new_cards.iter().position(|c| c == &0usize);
 
-        println!("brute force > {} {:?} {:?}", iter, new_cards, zero_pos);
-        //assert_eq!(smart_output, new_cards);
+        let res = reduce_steps(&steps, n_cards as isize, iter as isize);
+        let correct = check(&new_cards, res.0, res.1, res.2);
+        if !correct {
+            let smart_output = generate_from_steps(&res.3, n_cards);
+            println!("smart {:?}", smart_output);
+            println!("brute {:?}", new_cards);
+        }
+        println!("> {}", correct);
         cards = new_cards;
     }
 }
