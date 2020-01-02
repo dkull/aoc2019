@@ -1,7 +1,7 @@
 
 
 def modu(data, n):
-    new = data[:]
+    new = list(data)[:]
 
     for i,d in enumerate(data):
         to = (i * n) % (len(data))

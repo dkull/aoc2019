@@ -73,6 +73,7 @@ fn move_card_to(card_pos: isize, steps: &[Step], n_cards: isize) -> isize {
         -(pos + 1)
     }
 
+    //println!("moving a card to {}", card_pos);
     let mut card_pos = card_pos;
     for step in steps {
         card_pos = match step {
@@ -82,15 +83,13 @@ fn move_card_to(card_pos: isize, steps: &[Step], n_cards: isize) -> isize {
         };
         // has to be positive since i removed all negative handling
         card_pos = both(card_pos, n_cards).0;
+        //println!("{:?} caused move to {}", step, card_pos);
     }
     card_pos
 }
 
 fn generate_from_numbers(modu: isize, offset: isize, cards: isize, reverse: bool) -> Vec<isize> {
-    println!(
-        "generating with mod {} offs {} reversed {}",
-        modu, offset, reverse
-    );
+    println!("generating with mod {} offs {}", modu, offset);
     let mut out_vec = vec![];
     for _ in 0..cards {
         out_vec.push(0);
@@ -118,7 +117,7 @@ fn generate_from_steps(steps: &[Step], cards: isize) -> Vec<isize> {
     let mut reverse = false;
     for step in steps {
         match step {
-            Step::CUT(n) => offset = cards - *n,
+            Step::CUT(n) => offset = cards - 1 - *n,
             Step::DEAL(n) => modulus = *n,
             Step::NEWSTACK => reverse = true,
         }
@@ -126,11 +125,7 @@ fn generate_from_steps(steps: &[Step], cards: isize) -> Vec<isize> {
     generate_from_numbers(modulus, offset, cards, reverse)
 }
 
-fn reduce_steps(
-    steps: &[Step],
-    n_cards: isize,
-    iterations: isize,
-) -> (isize, isize, bool, Vec<Step>) {
+fn reduce_steps(steps: &[Step], n_cards: isize, iterations: isize) -> (isize, isize, Vec<Step>) {
     extern crate primes;
 
     let single_steps: Vec<Step> = steps.to_vec();
@@ -140,7 +135,6 @@ fn reduce_steps(
 
     let mut modulus = 1;
     let mut offset = 0;
-    let mut reversed = false;
 
     let mut iteration_factors = primes::factors(iterations as u64);
     if iteration_factors.len() == 1 {
@@ -161,10 +155,11 @@ fn reduce_steps(
     for (i, factor) in iteration_factors.iter().enumerate() {
         // we have to repeat the steps num times in factor
         //println!("doing factor {} on {:?}", factor, steps);
+
         modulus = 1;
         offset = 0;
-        reversed = false;
 
+        // sanity check
         assert!(factor < &10_000_000);
         for f in 0..*factor {
             // do each step
@@ -178,37 +173,29 @@ fn reduce_steps(
             for step in &steps {
                 match step {
                     Step::CUT(n) => {
-                        let n = abs_pos(*n, n_cards);
-                        offset -= n;
-                        //println!("cutting ({}) {} to {}", reversed, n, offset);
+                        offset -= abs_pos(*n, n_cards);
                     }
                     Step::DEAL(n) => {
                         let n = abs_pos(*n, n_cards);
                         modulus = mod_mult(modulus, n, n_cards);
-                        if offset > 0 {
-                            offset = mod_mult(offset, n, n_cards);
-                        }
+                        offset = mod_mult(offset, n, n_cards);
                     }
                     Step::NEWSTACK => {
                         offset = n_cards - 1 - offset;
-                        //println!("newstack toggle offset -> {}", offset);
-                        reversed = !reversed;
+                        modulus = n_cards - modulus;
                     }
                 }
                 if offset < 0 {
                     offset += n_cards;
-                    //println!("offset fixed to {}", offset);
                 }
                 offset %= n_cards;
+                //println!("ran {:?} offset {} modulus {}", step, offset, modulus);
             }
         }
 
         // we did the number of ops in factor, create new intermediate repr
-        println!(
-            "found descriptor [rev {}] modulus {} offset {}",
-            reversed, modulus, offset
-        );
-        let new_steps = numbers_to_steps(modulus, offset, reversed, n_cards);
+        println!("found descriptor modulus {} offset {}", modulus, offset);
+        let new_steps = numbers_to_steps(modulus, offset, n_cards);
         println!(
             "reduced {:?} down to {:?} in {} factor loops",
             steps, new_steps, factor
@@ -220,15 +207,14 @@ fn reduce_steps(
         steps = new_steps.clone();
     }
 
-    (offset, modulus, reversed, steps.to_vec())
+    (offset, modulus, steps.to_vec())
 }
 
-fn numbers_to_steps(modulus: isize, offset: isize, reversed: bool, cards: isize) -> Vec<Step> {
+fn numbers_to_steps(modulus: isize, offset: isize, cards: isize) -> Vec<Step> {
     let mut out = vec![];
     out.push(Step::DEAL(modulus));
-    out.push(Step::CUT(cards - offset));
-    if reversed {
-        out.push(Step::NEWSTACK);
+    if offset > 0 {
+        out.push(Step::CUT(cards - offset));
     }
     out
 }
@@ -262,16 +248,19 @@ fn mod_mult(a: isize, b: isize, m: isize) -> isize {
     res.to_isize().unwrap()
 }
 
-fn check(data: &[isize], _offset: isize, modu: isize, reversed: bool) -> bool {
+fn check(data: &[isize], _offset: isize, modu: isize) -> bool {
     let zero = data.iter().position(|d| d == &0).unwrap() as isize;
     let one = data.iter().position(|d| d == &1).unwrap() as isize;
+    println!(
+        "CHECK zero {} one {} offset {} modulus {}",
+        zero, one, _offset, modu
+    );
 
-    if !reversed {
-        (zero + modu) % data.len() as isize == one && _offset == zero
-    } else {
-        (one + modu) % data.len() as isize == zero
-        //&& (_offset == data.len()  - 1 - zero )
-    }
+    zero == _offset && (_offset + modu) % data.len() as isize == one
+}
+
+fn track_movement(steps: &[Step], pos: isize, iterations: isize) {
+    // foo
 }
 
 fn main() {
@@ -281,22 +270,18 @@ fn main() {
     // too low:  25_310_464_947_432
     // too hig: 118_781_300_053_829
 
-    // let n_cards: isize = 10007;
-    //let iterations: isize = 13000;
+    //let n_cards: isize = 10007;
+    //let iterations: isize = 100;
 
     let steps = load_steps(n_cards);
 
-    let mut cards: Vec<isize> = if n_cards < 100_000 {
-        (0..n_cards).collect()
-    } else {
-        (0..1).collect()
-    };
-
-    if iterations >= 100000 {
-        reduce_steps(&steps, n_cards, iterations);
+    if iterations >= 100_000 {
+        let (offset, modulus, steps) = reduce_steps(&steps, n_cards, iterations);
+        //track_movement(steps, _target_pos);
         return;
     }
 
+    let mut cards: Vec<isize> = (0..n_cards).collect();
     for iter in 1..=iterations {
         println!("=== iteration {}", iter);
         let mut new_cards = cards.clone();
@@ -306,12 +291,14 @@ fn main() {
         }
 
         let res = reduce_steps(&steps, n_cards, iter);
-        let correct = check(&new_cards, res.0, res.1, res.2);
+        let correct = check(&new_cards, res.0, res.1);
+        let smart_output = generate_from_steps(&res.2, n_cards);
+        //let correct = smart_output == new_cards;
+        println!("smart {:?}", smart_output);
+        println!("brute {:?}", new_cards);
         if !correct {
-            let smart_output = generate_from_steps(&res.3, n_cards);
-            println!("smart {:?}", smart_output);
-            println!("brute {:?}", new_cards);
-            panic!();
+            println!("ERRROR!");
+            //panic!();
         }
         println!("> {}", correct);
         cards = new_cards;
