@@ -5,7 +5,7 @@ def modu(data, n):
 
     for i,d in enumerate(data):
         to = (i * n) % (len(data))
-        print(f"writing val {i} to pos {to}")
+        #print(f"writing val {i} to pos {to}")
         new[to] = d
 
     for i in data:
