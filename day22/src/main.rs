@@ -117,7 +117,7 @@ fn generate_from_steps(steps: &[Step], cards: isize) -> Vec<isize> {
     let mut reverse = false;
     for step in steps {
         match step {
-            Step::CUT(n) => offset = cards - 1 - *n,
+            Step::CUT(n) => offset = cards - *n,
             Step::DEAL(n) => modulus = *n,
             Step::NEWSTACK => reverse = true,
         }
@@ -147,10 +147,10 @@ fn reduce_steps(steps: &[Step], n_cards: isize, iterations: isize) -> (isize, is
         iteration_factors = vec![iterations as u64];
     }
 
-    println!(
+    /*println!(
         "iteration {} has factors {:?} minus one? {}",
         iterations, iteration_factors, minus_one
-    );
+    );*/
 
     for (i, factor) in iteration_factors.iter().enumerate() {
         // we have to repeat the steps num times in factor
@@ -194,12 +194,12 @@ fn reduce_steps(steps: &[Step], n_cards: isize, iterations: isize) -> (isize, is
         }
 
         // we did the number of ops in factor, create new intermediate repr
-        println!("found descriptor modulus {} offset {}", modulus, offset);
+        //println!("found descriptor modulus {} offset {}", modulus, offset);
         let new_steps = numbers_to_steps(modulus, offset, n_cards);
-        println!(
+        /*println!(
             "reduced {:?} down to {:?} in {} factor loops",
             steps, new_steps, factor
-        );
+        );*/
         /*println!(
             "generated from reduced steps: {:?}",
             generate_from_steps(&new_steps, n_cards )
@@ -251,10 +251,10 @@ fn mod_mult(a: isize, b: isize, m: isize) -> isize {
 fn check(data: &[isize], _offset: isize, modu: isize) -> bool {
     let zero = data.iter().position(|d| d == &0).unwrap() as isize;
     let one = data.iter().position(|d| d == &1).unwrap() as isize;
-    println!(
+    /*println!(
         "CHECK zero {} one {} offset {} modulus {}",
         zero, one, _offset, modu
-    );
+    );*/
 
     zero == _offset && (_offset + modu) % data.len() as isize == one
 }
@@ -270,14 +270,15 @@ fn main() {
     // too low:  25_310_464_947_432
     // too hig: 118_781_300_053_829
 
-    //let n_cards: isize = 10007;
-    //let iterations: isize = 100;
+    let _target_pos = 20;
+    let n_cards: isize = 31;
+    let iterations: isize = 100;
 
     let steps = load_steps(n_cards);
 
     if iterations >= 100_000 {
         let (offset, modulus, steps) = reduce_steps(&steps, n_cards, iterations);
-        //track_movement(steps, _target_pos);
+        track_movement(&steps, _target_pos, iterations - n_cards);
         return;
     }
 
@@ -296,6 +297,10 @@ fn main() {
         //let correct = smart_output == new_cards;
         println!("smart {:?}", smart_output);
         println!("brute {:?}", new_cards);
+        println!(
+            "target at {}",
+            new_cards.iter().position(|c| c == &_target_pos).unwrap()
+        );
         if !correct {
             println!("ERRROR!");
             //panic!();
