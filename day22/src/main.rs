@@ -119,7 +119,7 @@ fn run_steps(
 
                 added_cuts += n_cards - n;
                 added_cuts %= n_cards;
-                println!("cut {} cuts was {} now {}", n, old, added_cuts);
+                //println!("cut {} cuts was {} now {}", n, old, added_cuts);
             }
             Step::DEAL(n) => {
                 let old = modulus;
@@ -206,19 +206,17 @@ fn main() {
         (0..1).collect()
     };
 
-    let modulus: usize = 1;
-    let offset: usize = 0;
-
+    let mut modulus: usize = 1;
+    let mut offset: usize = 0;
     let res = run_steps(&steps, n_cards as isize, modulus as isize, offset as isize);
-    let cuts = res.0;
-    let deals = res.1;
+    offset = res.0 as usize;
+    modulus = res.1 as usize;
     let reverse = res.2;
-    println!("cuts {} deals {}", cuts, deals);
 
     println!("===");
 
-    let pred_modulus = mod_pow(deals as usize, iterations, n_cards);
-    let pred_offset = mod_mult(cuts as usize, iterations, n_cards);
+    let pred_modulus = mod_pow(modulus as usize, iterations, n_cards);
+    let pred_offset = mod_mult(offset as usize, iterations, n_cards);
 
     println!(
         "predicting next for iter {}: mod {} offs {}",
@@ -247,17 +245,25 @@ fn main() {
         target_offset / pred_modulus,
         target_offset > pred_modulus
     );
-    if iterations < 100_000 {
-        for iter in 1..=iterations {
-            let mut new_cards = cards.clone();
-            for card in 0..n_cards {
-                let c = round(card as isize, &steps, n_cards as usize) % n_cards as isize;
-                //println!("card {} -> {} {}", card, cards[card as usize], c);
-                new_cards[c as usize] = cards[card as usize];
-            }
-            println!("> {} {:?}", iter, new_cards);
-            cards = new_cards;
+
+    if iterations >= 100_000 {
+        return;
+    }
+
+    for iter in 1..=iterations {
+        let mut new_cards = cards.clone();
+        for card in 0..n_cards {
+            let c = round(card as isize, &steps, n_cards as usize) % n_cards as isize;
+            //println!("card {} -> {} {}", card, cards[card as usize], c);
+            new_cards[c as usize] = cards[card as usize];
         }
+        println!(
+            "! {} {:?}",
+            iter,
+            gen(mod_pow(modulus, iter, n_cards), iter, n_cards, false)
+        );
+        println!("> {} {:?}", iter, new_cards);
+        cards = new_cards;
     }
 }
 
