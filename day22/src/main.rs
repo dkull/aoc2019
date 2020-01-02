@@ -145,7 +145,7 @@ fn reduce_steps(
 
     let mut steps: Vec<Step> = steps.clone();
 
-    let mut modulus: usize = 1;
+    let mut modulus = 1;
     let mut offset = 0;
     let mut reversed = false;
 
@@ -188,15 +188,14 @@ fn reduce_steps(
                     }
                     Step::DEAL(n) => {
                         let n = abs_pos(*n, n_cards);
-                        modulus = mod_mult(modulus, n as usize, n_cards as usize) as usize;
+                        modulus *= n;
+                        modulus %= n_cards;
                         if offset > 0 {
                             if !reversed {
-                                offset = mod_mult(offset as usize, n as usize, n_cards as usize)
-                                    as isize;
+                                offset *= n;
                             //println!("mult offset {} -> {}", n, offset);
                             } else {
-                                offset = mod_mult(offset as usize, n as usize, n_cards as usize)
-                                    as isize;
+                                offset = (offset * n) % n_cards;
                                 //println!("mult_r offset {} -> {}", n, offset);
                             }
                         }
@@ -220,7 +219,7 @@ fn reduce_steps(
             "found descriptor [rev {}] modulus {} offset {}",
             reversed, modulus, offset
         );
-        let new_steps = numbers_to_steps(modulus as isize, offset, reversed, n_cards);
+        let new_steps = numbers_to_steps(modulus, offset, reversed, n_cards);
         println!(
             "reduced {:?} down to {:?} in {} factor loops",
             steps, new_steps, factor
@@ -232,7 +231,7 @@ fn reduce_steps(
         steps = new_steps.clone();
     }
 
-    (offset, modulus as isize, reversed, steps.to_vec())
+    (offset, modulus, reversed, steps.to_vec())
 }
 
 fn numbers_to_steps(modulus: isize, offset: isize, reversed: bool, cards: isize) -> Vec<Step> {
