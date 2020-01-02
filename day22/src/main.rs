@@ -5,7 +5,7 @@ enum Step {
     NEWSTACK,
 }
 
-fn load_steps(cards: usize) -> Vec<Step> {
+fn load_steps(cards: isize) -> Vec<Step> {
     use std::fs::File;
     use std::io::prelude::*;
 
@@ -24,7 +24,7 @@ fn load_steps(cards: usize) -> Vec<Step> {
             } else if c.contains("cut") {
                 let val = c.split(' ').last().unwrap().parse::<isize>().unwrap();
                 if val < 0 {
-                    Step::CUT(cards as isize + val)
+                    Step::CUT(cards + val)
                 } else {
                     Step::CUT(val)
                 }
@@ -62,7 +62,7 @@ fn both(pos: isize, cards: isize) -> (isize, isize) {
     }
 }
 
-fn move_card_to(card_pos: isize, steps: &[Step], n_cards: usize) -> isize {
+fn move_card_to(card_pos: isize, steps: &[Step], n_cards: isize) -> isize {
     fn predict_cut(pos: isize, cut: isize) -> isize {
         pos - cut
     }
@@ -77,16 +77,16 @@ fn move_card_to(card_pos: isize, steps: &[Step], n_cards: usize) -> isize {
     for step in steps {
         card_pos = match step {
             Step::CUT(n) => predict_cut(card_pos, *n),
-            Step::DEAL(n) => predict_deal(card_pos, *n, n_cards as isize),
+            Step::DEAL(n) => predict_deal(card_pos, *n, n_cards),
             Step::NEWSTACK => predict_newstack(card_pos),
         };
         // has to be positive since i removed all negative handling
-        card_pos = both(card_pos, n_cards as isize).0;
+        card_pos = both(card_pos, n_cards).0;
     }
     card_pos
 }
 
-fn generate_from_numbers(modu: usize, offset: usize, cards: usize, reverse: bool) -> Vec<usize> {
+fn generate_from_numbers(modu: isize, offset: isize, cards: isize, reverse: bool) -> Vec<isize> {
     println!(
         "generating with mod {} offs {} reversed {}",
         modu, offset, reverse
@@ -97,29 +97,29 @@ fn generate_from_numbers(modu: usize, offset: usize, cards: usize, reverse: bool
     }
     if !reverse {
         for i in 0..cards {
-            out_vec[((i * modu) + offset) % cards] = i;
+            out_vec[(((i * modu) + offset) % cards) as usize] = i;
         }
     } else {
         for i in 0..cards {
-            let mut index = offset as isize - (i as isize * modu as isize) % cards as isize;
+            let mut index = offset - (i * modu) % cards;
             if index < 0 {
-                index = cards as isize + index as isize;
+                index += cards;
             }
-            index %= cards as isize;
+            index %= cards;
             out_vec[index as usize] = i;
         }
     }
     out_vec
 }
 
-fn generate_from_steps(steps: &[Step], cards: usize) -> Vec<usize> {
-    let mut offset = 0usize;
-    let mut modulus = 0usize;
+fn generate_from_steps(steps: &[Step], cards: isize) -> Vec<isize> {
+    let mut offset = 0isize;
+    let mut modulus = 0isize;
     let mut reverse = false;
     for step in steps {
         match step {
-            Step::CUT(n) => offset = cards - *n as usize,
-            Step::DEAL(n) => modulus = *n as usize,
+            Step::CUT(n) => offset = cards - *n,
+            Step::DEAL(n) => modulus = *n,
             Step::NEWSTACK => reverse = true,
         }
     }
@@ -184,10 +184,9 @@ fn reduce_steps(
                     }
                     Step::DEAL(n) => {
                         let n = abs_pos(*n, n_cards);
-                        modulus = mod_mult(modulus as usize, n as usize, n_cards as usize) as isize;
+                        modulus = mod_mult(modulus, n, n_cards);
                         if offset > 0 {
-                            offset =
-                                mod_mult(offset as usize, n as usize, n_cards as usize) as isize;
+                            offset = mod_mult(offset, n, n_cards);
                         }
                     }
                     Step::NEWSTACK => {
@@ -216,7 +215,7 @@ fn reduce_steps(
         );
         /*println!(
             "generated from reduced steps: {:?}",
-            generate_from_steps(&new_steps, n_cards as usize)
+            generate_from_steps(&new_steps, n_cards )
         );*/
         steps = new_steps.clone();
     }
@@ -234,67 +233,67 @@ fn numbers_to_steps(modulus: isize, offset: isize, reversed: bool, cards: isize)
     out
 }
 
-fn _mod_pow(base: usize, exp: usize, modulus: usize) -> usize {
+fn _mod_pow(base: isize, exp: isize, modulus: isize) -> isize {
     extern crate num_bigint;
     extern crate num;
     extern crate num_traits;
 
-    use num_bigint::BigUint;
+    use num_bigint::BigInt;
     use num_traits::cast::ToPrimitive;
 
-    let b: BigUint = base.into();
-    let e: BigUint = exp.into();
-    let m: BigUint = modulus.into();
-    let res: BigUint = b.modpow(&e, &m);
-    res.to_usize().unwrap()
+    let b: BigInt = base.into();
+    let e: BigInt = exp.into();
+    let m: BigInt = modulus.into();
+    let res: BigInt = b.modpow(&e, &m);
+    res.to_isize().unwrap()
 }
 
-fn mod_mult(a: usize, b: usize, m: usize) -> usize {
+fn mod_mult(a: isize, b: isize, m: isize) -> isize {
     extern crate num_bigint;
     extern crate num;
     extern crate num_traits;
 
-    use num_bigint::BigUint;
+    use num_bigint::BigInt;
     use num_traits::cast::ToPrimitive;
 
-    let a: BigUint = a.into();
-    let b: BigUint = b.into();
-    let res: BigUint = (a * b) % m;
-    res.to_usize().unwrap()
+    let a: BigInt = a.into();
+    let b: BigInt = b.into();
+    let res: BigInt = (a * b) % m;
+    res.to_isize().unwrap()
 }
 
-fn check(data: &[usize], _offset: isize, modu: isize, reversed: bool) -> bool {
-    let zero = data.iter().position(|d| d == &0).unwrap();
-    let one = data.iter().position(|d| d == &1).unwrap();
+fn check(data: &[isize], _offset: isize, modu: isize, reversed: bool) -> bool {
+    let zero = data.iter().position(|d| d == &0).unwrap() as isize;
+    let one = data.iter().position(|d| d == &1).unwrap() as isize;
 
     if !reversed {
-        (zero + modu as usize) % data.len() == one && _offset == zero as isize
+        (zero + modu) % data.len() as isize == one && _offset == zero
     } else {
-        (one + modu as usize) % data.len() == zero
-        //&& (_offset == data.len() as isize - 1 - zero as isize)
+        (one + modu) % data.len() as isize == zero
+        //&& (_offset == data.len()  - 1 - zero )
     }
 }
 
 fn main() {
     let _target_pos = 2020;
-    let n_cards: usize = 119_315_717_514_047;
-    let iterations: usize = 101_741_582_076_661;
+    let n_cards: isize = 119_315_717_514_047;
+    let iterations: isize = 101_741_582_076_661;
     // too low:  25_310_464_947_432
     // too hig: 118_781_300_053_829
 
-    // let n_cards: usize = 10007;
-    //let iterations: usize = 13000;
+    // let n_cards: isize = 10007;
+    //let iterations: isize = 13000;
 
     let steps = load_steps(n_cards);
 
-    let mut cards: Vec<usize> = if n_cards < 100_000 {
+    let mut cards: Vec<isize> = if n_cards < 100_000 {
         (0..n_cards).collect()
     } else {
         (0..1).collect()
     };
 
     if iterations >= 100000 {
-        reduce_steps(&steps, n_cards as isize, iterations as isize);
+        reduce_steps(&steps, n_cards, iterations);
         return;
     }
 
@@ -302,11 +301,11 @@ fn main() {
         println!("=== iteration {}", iter);
         let mut new_cards = cards.clone();
         for card in 0..n_cards {
-            let c = move_card_to(card as isize, &steps, n_cards as usize) % n_cards as isize;
+            let c = move_card_to(card, &steps, n_cards) % n_cards;
             new_cards[c as usize] = cards[card as usize];
         }
 
-        let res = reduce_steps(&steps, n_cards as isize, iter as isize);
+        let res = reduce_steps(&steps, n_cards, iter);
         let correct = check(&new_cards, res.0, res.1, res.2);
         if !correct {
             let smart_output = generate_from_steps(&res.3, n_cards);
