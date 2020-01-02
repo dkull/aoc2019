@@ -171,14 +171,9 @@ fn reduce_steps(
         reversed = false;
 
         assert!(factor < 10_000_000);
-        for (i, f) in (0..factor).enumerate() {
+        for f in 0..factor {
             // do each step
             //println!("-- factor nth {}", f);
-            if i == (factor - 1) as usize {
-                for single_step in &single_steps {
-                    steps.push(single_step.clone());
-                }
-            }
             for step in &steps {
                 match step {
                     Step::CUT(n) => {
@@ -224,10 +219,10 @@ fn reduce_steps(
             "reduced {:?} down to {:?} in {} factor loops",
             steps, new_steps, factor
         );
-        /*println!(
+        println!(
             "generated from reduced steps: {:?}",
             generate_from_steps(&new_steps, n_cards as usize)
-        );*/
+        );
         steps = new_steps.clone();
     }
 
@@ -293,8 +288,8 @@ fn main() {
     // too hig: 118_781_300_053_829
 
     let target_pos = 1;
-    //let n_cards: usize = 10007;
-    //let iterations = 1000000;
+    let n_cards: usize = 17;
+    let iterations = 10;
 
     let steps = load_steps(n_cards);
 
@@ -312,22 +307,22 @@ fn main() {
         return;
     }
 
-    /*for iter in 1..=iterations {
+    for iter in 1..=iterations {
         println!("=== iteration {}", iter);
         let res = reduce_steps(&steps, n_cards as isize, iter as isize);
-        //let smart_output = generate_from_steps(&res.3, n_cards);
+        let smart_output = generate_from_steps(&res.3, n_cards);
 
         let mut new_cards = cards.clone();
         for card in 0..n_cards {
             let c = move_card_to(card as isize, &steps, n_cards as usize) % n_cards as isize;
             new_cards[c as usize] = cards[card as usize];
         }
-        //let zero_pos = new_cards.iter().position(|c| c == &0usize);
+        let zero_pos = new_cards.iter().position(|c| c == &0usize);
 
-        //println!("brute force > {} {:?} {:?}", iter, new_cards, zero_pos);
+        println!("brute force > {} {:?} {:?}", iter, new_cards, zero_pos);
         //assert_eq!(smart_output, new_cards);
         cards = new_cards;
-    }*/
+    }
 }
 
 /*
