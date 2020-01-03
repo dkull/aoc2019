@@ -1,6 +1,18 @@
 use std::collections::HashMap;
 
-pub fn load_map() -> [[char; 5]; 5] {
+const MAP_DIM: usize = 5;
+const RECURSE_POS: (isize, isize) = (2, 2);
+
+type Map = [[char; MAP_DIM as usize]; MAP_DIM as usize];
+
+enum CameFrom {
+    TOP,
+    BOTTOM,
+    LEFT,
+    RIGHT,
+}
+
+pub fn load_map() -> Map {
     use std::fs::File;
     use std::io::prelude::*;
     let mut file = File::open("input.txt").unwrap();
@@ -12,7 +24,7 @@ pub fn load_map() -> [[char; 5]; 5] {
         .map(|c| c.chars().collect())
         .collect();
 
-    let mut map = [['.'; 5]; 5];
+    let mut map = get_clear_map();
     for (y, line) in tokens.iter().enumerate() {
         for (x, tile) in line.iter().enumerate() {
             map[y][x] = *tile;
@@ -21,28 +33,78 @@ pub fn load_map() -> [[char; 5]; 5] {
     map
 }
 
-fn tile_is_bug(map: &[[char; 5]; 5], x: isize, y: isize) -> bool {
-    if x < 0 || x >= map[0].len() as isize || y < 0 || y >= map.len() as isize {
-        return false;
+fn bug_count(
+    layer: isize,
+    maps: &HashMap<isize, Map>,
+    x: isize,
+    y: isize,
+    came_from: CameFrom,
+) -> isize {
+    let mut neighbors = vec![];
+
+    // recurse to upper levels
+    let higher_layer = &(layer + 1);
+    let lower_layer = &(layer - 1);
+
+    // if higher layer
+    if y < 0 || y >= MAP_DIM as isize || x < 0 || x >= MAP_DIM as isize {
+        if y < 0 {
+            neighbors
+                .push(maps[higher_layer][(RECURSE_POS.1 - 1) as usize][RECURSE_POS.0 as usize]);
+        }
+        if y >= MAP_DIM as isize {
+            neighbors
+                .push(maps[higher_layer][(RECURSE_POS.1 + 1) as usize][RECURSE_POS.0 as usize]);
+        }
+        if x < 0 {
+            neighbors
+                .push(maps[higher_layer][RECURSE_POS.1 as usize][(RECURSE_POS.0 - 1) as usize]);
+        }
+        if x >= MAP_DIM as isize {
+            neighbors
+                .push(maps[higher_layer][RECURSE_POS.1 as usize][(RECURSE_POS.0 + 1) as usize]);
+        }
+    } else if x == RECURSE_POS.0 && y == RECURSE_POS.1 {
+        // if lower layer
+        let xs_and_ys: Vec<(usize, usize)> = match came_from {
+            CameFrom::TOP => (0..MAP_DIM).map(|xx| (xx, 0)).collect(),
+            CameFrom::BOTTOM => (0..MAP_DIM).map(|xx| (xx, MAP_DIM - 1)).collect(),
+            CameFrom::LEFT => (0..MAP_DIM).map(|yy| (0, yy)).collect(),
+            CameFrom::RIGHT => (0..MAP_DIM).map(|yy| (MAP_DIM - 1, yy)).collect(),
+        };
+        for (x, y) in xs_and_ys {
+            //println!("taking from lower layer {} {} {}", lower_layer, x, y);
+            neighbors.push(maps[lower_layer][y][x]);
+        }
+    } else {
+        neighbors.push(maps[&(layer as isize)][y as usize][x as usize]);
     }
-    map[y as usize][x as usize] == '#'
+
+    neighbors.iter().filter(|n| n == &&'#').count() as isize
 }
 
-fn update_map(maps: &HashMap<isize, [[char; 5]; 5]>, layer: &isize) -> [[char; 5]; 5] {
+fn update_map(maps: &HashMap<isize, Map>, layer: isize) -> Map {
     let old_map = maps.get(&layer).unwrap();
-    let mut new_map = old_map.clone();
+    let mut new_map = *old_map;
 
     for (y, line) in old_map.iter().enumerate() {
         for (x, tile) in line.iter().enumerate() {
-            let adjacent_count: usize = vec![
-                tile_is_bug(&old_map, x as isize - 1, y as isize),
-                tile_is_bug(&old_map, x as isize + 1, y as isize),
-                tile_is_bug(&old_map, x as isize, y as isize - 1),
-                tile_is_bug(&old_map, x as isize, y as isize + 1),
-            ]
-            .iter()
-            .filter(|t| t == &&true)
-            .count();
+            // don't do logic for recurse tile
+            if x == RECURSE_POS.0 as usize && y == RECURSE_POS.1 as usize {
+                continue;
+            }
+            let adjacents = vec![
+                bug_count(layer, &maps, x as isize - 1, y as isize, CameFrom::RIGHT),
+                bug_count(layer, &maps, x as isize + 1, y as isize, CameFrom::LEFT),
+                bug_count(layer, &maps, x as isize, y as isize - 1, CameFrom::BOTTOM),
+                bug_count(layer, &maps, x as isize, y as isize + 1, CameFrom::TOP),
+            ];
+            let adjacent_count: isize = adjacents.iter().sum();
+
+            /*println!(
+                "layer {}  x:{} y:{} has {} adjacent {:?}",
+                layer, x, y, adjacent_count, adjacents
+            );*/
 
             if tile == &'#' && adjacent_count != 1 {
                 new_map[y][x] = '.';
@@ -54,36 +116,61 @@ fn update_map(maps: &HashMap<isize, [[char; 5]; 5]>, layer: &isize) -> [[char; 5
     new_map
 }
 
-fn print_map(map: &Vec<Vec<char>>) {
-    for line in map {
-        for tile in line {
-            print!("{}", tile);
-        }
-        println!();
-    }
+fn get_clear_map() -> Map {
+    [['.'; MAP_DIM]; MAP_DIM]
 }
 
-fn get_clear_map() -> [[char; 5]; 5] {
-    [['.'; 5]; 5]
+fn count_bugs_in_map(map: &Map) -> isize {
+    let mut bugs = 0;
+    for y in map {
+        for x in y {
+            if x == &'#' {
+                bugs += 1;
+            }
+        }
+    }
+    bugs
+}
+
+fn count_bugs(maps: &HashMap<isize, Map>) -> isize {
+    let mut bugs = 0;
+    maps.iter().for_each(|(_, m)| {
+        bugs += count_bugs_in_map(&m);
+    });
+    bugs
 }
 
 fn main() {
-    let mut maps = HashMap::new();
+    let mut maps: HashMap<isize, Map> = HashMap::new();
+    let epochs = 200;
 
     // initialize the first layers
-    maps.insert(-1, get_clear_map());
     maps.insert(0, load_map());
-    maps.insert(1, get_clear_map());
+    for layers in 1..=epochs {
+        maps.insert(-layers, get_clear_map());
+        maps.insert(layers, get_clear_map());
+    }
 
-    for epoch in 1..=200 {
-        println!("epoch {}", epoch);
+    for epoch in 1..=epochs {
+        println!("start epoch {} with {} bugs", epoch, count_bugs(&maps));
         let mut new_maps = HashMap::new();
         for layer in maps.keys() {
-            let map = update_map(&maps, layer);
+            let possible = (maps.contains_key(&(layer - 1))
+                && count_bugs_in_map(&maps[&(layer - 1)]) > 0)
+                || (maps.contains_key(&(layer + 1)) && count_bugs_in_map(&maps[&(layer + 1)]) > 0)
+                || count_bugs_in_map(&maps[&(layer)]) > 0;
+
+            let map = if possible {
+                update_map(&maps, *layer)
+            } else {
+                maps[layer]
+            };
+
             new_maps.insert(*layer, map);
         }
         for (k, v) in new_maps {
             maps.insert(k, v);
         }
     }
+    println!("bugs {}", count_bugs(&maps));
 }
