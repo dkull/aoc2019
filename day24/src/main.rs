@@ -1,4 +1,6 @@
-pub fn load_map() -> Vec<Vec<char>> {
+use std::collections::HashMap;
+
+pub fn load_map() -> [[char; 5]; 5] {
     use std::fs::File;
     use std::io::prelude::*;
     let mut file = File::open("input.txt").unwrap();
@@ -9,18 +11,27 @@ pub fn load_map() -> Vec<Vec<char>> {
         .split('\n')
         .map(|c| c.chars().collect())
         .collect();
-    tokens
+
+    let mut map = [['.'; 5]; 5];
+    for (y, line) in tokens.iter().enumerate() {
+        for (x, tile) in line.iter().enumerate() {
+            map[y][x] = *tile;
+        }
+    }
+    map
 }
 
-fn tile_is_bug(map: &Vec<Vec<char>>, x: isize, y: isize) -> bool {
+fn tile_is_bug(map: &[[char; 5]; 5], x: isize, y: isize) -> bool {
     if x < 0 || x >= map[0].len() as isize || y < 0 || y >= map.len() as isize {
         return false;
     }
     map[y as usize][x as usize] == '#'
 }
 
-fn update_map(old_map: Vec<Vec<char>>) -> Vec<Vec<char>> {
+fn update_map(maps: &HashMap<isize, [[char; 5]; 5]>, layer: &isize) -> [[char; 5]; 5] {
+    let old_map = maps.get(&layer).unwrap();
     let mut new_map = old_map.clone();
+
     for (y, line) in old_map.iter().enumerate() {
         for (x, tile) in line.iter().enumerate() {
             let adjacent_count: usize = vec![
@@ -43,18 +54,6 @@ fn update_map(old_map: Vec<Vec<char>>) -> Vec<Vec<char>> {
     new_map
 }
 
-fn compute_score(map: &Vec<Vec<char>>) -> usize {
-    let mut score = 0;
-    for (y, line) in map.iter().enumerate() {
-        for (x, tile) in line.iter().enumerate() {
-            if tile == &'#' {
-                score += 1 << ((y * line.len()) + x);
-            }
-        }
-    }
-    score
-}
-
 fn print_map(map: &Vec<Vec<char>>) {
     for line in map {
         for tile in line {
@@ -64,27 +63,27 @@ fn print_map(map: &Vec<Vec<char>>) {
     }
 }
 
+fn get_clear_map() -> [[char; 5]; 5] {
+    [['.'; 5]; 5]
+}
+
 fn main() {
-    let mut map = load_map();
-    print_map(&map);
-    println!("score: {}", compute_score(&map));
+    let mut maps = HashMap::new();
 
-    let mut seen_scores = vec![];
-    for _ in 0..1 << (5 * 5) {
-        seen_scores.push(false);
-    }
-    //let mut seen_scores = [false; 1 << (5 * 5)].to_vec();
+    // initialize the first layers
+    maps.insert(-1, get_clear_map());
+    maps.insert(0, load_map());
+    maps.insert(1, get_clear_map());
 
-    for epoch in 1..=1 << (5 * 5) {
-        //println!();
+    for epoch in 1..=200 {
         println!("epoch {}", epoch);
-        map = update_map(map);
-        print_map(&map);
-        let score = compute_score(&map);
-        //println!("score: {}", score);
-        if seen_scores[score] {
-            panic!("epoch {} seen score {}", epoch, score);
+        let mut new_maps = HashMap::new();
+        for layer in maps.keys() {
+            let map = update_map(&maps, layer);
+            new_maps.insert(*layer, map);
         }
-        seen_scores[score] = true;
+        for (k, v) in new_maps {
+            maps.insert(k, v);
+        }
     }
 }
